@@ -30,6 +30,18 @@ func parseList(value string) (list []int64) {
   return
 }
 
+func parseLengths(value string) (list []string) {
+  if len(value) == 0 {
+    return
+  }
+
+  for _, c := range strings.Split(value, ",") {
+    list = append(list, c)
+  }
+
+  return
+}
+
 func main() {
   helpers.PrintBanner()
 
@@ -64,7 +76,7 @@ func main() {
   }
 
   codes := parseList(*tmpcodes)
-  lengths := parseList(*tmplen)
+  lengths := parseLengths(*tmplen)
 
   log.Info(fmt.Sprintf("Parsed options using url: %s, wordlist: %s", *url, *wordlist))
   s := scanner.New(*wordlist, *threads, duration)

@@ -27,7 +27,7 @@ func (s *Scheduler) StartThread(job func()) {
 func (s *Scheduler) WaitForThreads(finish bool) {
   if atomic.LoadUint64(&s.threadCount) >= uint64(s.threads) {
     for atomic.LoadUint64(&s.threadCount) >= uint64(s.threads)  {
-      time.Sleep(10 * time.Millisecond)
+      time.Sleep(1 * time.Millisecond)
     }
   }
   if finish {

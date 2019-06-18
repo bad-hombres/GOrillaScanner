@@ -8,6 +8,8 @@ import (
   "bufio"
   "os"
   "time"
+  "io/ioutil"
+  "strconv"
 )
 
 type Scanner struct {
@@ -47,8 +49,15 @@ func (s *Scanner) makeRequest(url string) {
     s.results <- &Result{url, -1, 0}
     return
   }
+
+  contentLen := resp.ContentLength
+  if (contentLen == -1) {
+    body, _ := ioutil.ReadAll(resp.Body)
+    contentLen = int64(len(body))
+  }
+
   defer resp.Body.Close()
-  s.results <- &Result{url, resp.StatusCode, resp.ContentLength}
+  s.results <- &Result{url, resp.StatusCode, contentLen}
 }
 
 func checkVals(val int64, vals []int64) bool {
@@ -64,15 +73,69 @@ func checkVals(val int64, vals []int64) bool {
     return false
 }
 
-func (s *Scanner) Start(template string, codes []int64, lengths []int64, hide bool) {
+func checkLengths(val int64, vals []string) bool {
+  op := "="
+  var tmpVal int64
+  var tmpVals [2]int64
+
+  for _, v := range vals {
+    if (strings.Contains(v, ">")) {
+      tmp := strings.Split(v, ">")[1]
+      op = ">"
+      tmpVal, _ = strconv.ParseInt(tmp, 10, 64)
+    }
+
+    if (strings.Contains(v, "<")) {
+      tmp := strings.Split(v, "<")[1]
+      op = "<"
+      tmpVal, _ = strconv.ParseInt(tmp, 10, 64)
+    }
+
+    if (strings.Contains(v, "..")) {
+      tmp := strings.Split(v, "..")
+      op = ".."
+      tmpVals[0], _ = strconv.ParseInt(tmp[0], 10, 64)
+      tmpVals[1], _ = strconv.ParseInt(tmp[1], 10, 64)
+    }
+
+    if (strings.Contains(v, "=")) {
+      tmp := strings.Split(v, "=")[1]
+      op = "="
+      tmpVal, _ = strconv.ParseInt(tmp, 10, 64)
+    }
+
+    switch op {
+    case ">":
+      if (val > tmpVal) {
+        return true
+      }
+    case "<":
+      if (val < tmpVal) {
+        return true
+      }
+    case "..":
+      //log.Warn(fmt.Sprintf("%v - %v = %v", tmpVals, val, val >= tmpVals[0] && val <= tmpVals[1]))
+      if (val >= tmpVals[0] && val <= tmpVals[1]) {
+        return true
+      }
+    default:
+      if (val == tmpVal) {
+        return true
+      }
+    }
+  }
+  return false;
+}
+
+func (s *Scanner) Start(template string, codes []int64, lengths []string, hide bool) {
   log.Warn(fmt.Sprintf("Starting scan of url: %s", template))
   s.results = make(chan *Result)
 
   go s.recieveResults(func(resp *Result) bool {
       if hide {
-        return !(checkVals(int64(resp.code), codes) && checkVals(resp.contentlen, lengths))
+        return !(checkVals(int64(resp.code), codes) && checkLengths(resp.contentlen, lengths))
       } else {
-        return checkVals(int64(resp.code), codes) && checkVals(resp.contentlen, lengths)
+        return checkVals(int64(resp.code), codes) && checkLengths(resp.contentlen, lengths)
       }
   })
   
